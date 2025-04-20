@@ -1,0 +1,11 @@
+matplotlib==3.6.2
+numpy==1.24.4
+opfunu==1.0.4
+scikit_learn==1.6.1
+setuptools==65.5.0
+shap==0.47.1
+sympy==1.11.1
+torch==2.2.2
+tqdm==4.66.2
+pandas==2.0.1
+pykan==0.2.8
