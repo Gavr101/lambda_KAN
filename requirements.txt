@@ -4,8 +4,12 @@ opfunu==1.0.4
 scikit_learn==1.6.1
 setuptools==65.5.0
 shap==0.47.1
-sympy==1.11.1
-torch==2.2.2
+sympy== 1.14.0
+torch==2.7.0
+torchmetrics==1.7.1
+torchvision==0.22.0
+lightning==2.5.1
+tbparse==0.0.2
 tqdm==4.66.2
 pandas==2.0.1
 pykan==0.2.8
