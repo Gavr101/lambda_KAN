@@ -13,3 +13,4 @@ tbparse==0.0.2
 tqdm==4.66.2
 pandas==2.0.1
 pykan==0.2.8
+seaborn
