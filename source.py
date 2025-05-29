@@ -5,7 +5,7 @@ from matplotlib.ticker import FuncFormatter
 import seaborn as sns
 import pandas as pd
 
-from kan import KAN, KANLayer
+from kan import KAN, KANLayer, MLP
 from kan.spline import *
 from kan.utils import sparse_mask
 

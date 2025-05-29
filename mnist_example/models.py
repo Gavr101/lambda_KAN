@@ -46,7 +46,7 @@ class MnistLR(nn.Module):
         Function for online sensitivity logging.
         '''
         LR_layer = self.layers[1].state_dict()
-        W = LR_layer['weight'].permute(1,0).detach().clone().numpy()
+        W = LR_layer['weight'].permute(1,0).detach().clone().cpu().numpy()
         
         return W
 
@@ -120,7 +120,7 @@ class Mnist_lmdSplineKAN(nn.Module):
         '''
         lmd_W = []
         for i in range(10):
-            lmd_W.append(self.l_layers[i][1].lmd.detach().clone().numpy())
+            lmd_W.append(self.l_layers[i][1].lmd.detach().clone().cpu().numpy())
 
         lmd_W = np.array(lmd_W).transpose(1,0)
         
@@ -174,7 +174,7 @@ class Mnist_tlmdSplineKAN(nn.Module):
         '''
         lmd_W = []
         for i in range(10):
-            lmd_W.append(self.l_layers[i][1].lmd.detach().clone().numpy())
+            lmd_W.append(self.l_layers[i][1].lmd.detach().clone().cpu().numpy())
 
         lmd_W = np.array(lmd_W).transpose(1,0)
         
