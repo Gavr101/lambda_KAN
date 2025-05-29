@@ -23,9 +23,6 @@ def set_random_seed(seed):
     random.seed(seed)
 
 
-set_random_seed(42)
-
-
 class MnistLR(nn.Module):
     def __init__(self, input_shape=(1, 28, 28)):
         '''
@@ -211,13 +208,13 @@ def show_sensitivity(W, title = '', save_pic=False, file_path=None):
         img = templates[:, i].reshape(28, 28).astype(int)
         plt.imshow(img, cmap="gray")
         plt.axis("off")
-        plt.title(labels_names[i], size=25)
+        plt.title(labels_names[i], size=40, fontweight='bold')
         
     plt.suptitle(title, size=50)
     plt.tight_layout()
     plt.subplots_adjust(top=1.44)
     if save_pic:
-        plt.savefig(file_path, bbox_inches='tight', size=40, fontweight='bold')
+        plt.savefig(file_path, bbox_inches='tight')
     plt.show()
     plt.close()
     
