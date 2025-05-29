@@ -217,7 +217,7 @@ def show_sensitivity(W, title = '', save_pic=False, file_path=None):
     plt.tight_layout()
     plt.subplots_adjust(top=1.44)
     if save_pic:
-        plt.savefig(file_path, bbox_inches='tight')
+        plt.savefig(file_path, bbox_inches='tight', size=40, fontweight='bold')
     plt.show()
     plt.close()
     
