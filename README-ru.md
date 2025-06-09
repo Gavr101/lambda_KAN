@@ -2,7 +2,7 @@
 
 ![gif1](mnist_example/logs/MnistLR/lightning_logs/version_0/sens_pic/MnistLR.gif)
 ![gif2](mnist_example/logs/Mnist_tlmdSplineKAN/lightning_logs/version_0/sens_pic/tlmdSplineKAN.gif)
-*Изменение карт чувствительности линейного классификатора и обучаемой $\lambda$-СКА в процессе обучения*
+*Изменение карт чувствительности линейного классификатора и обучаемой* $\lambda$ *- СКА в процессе обучения*
 
 # Общее описание
 В этом проекте представлен программный код, реализующий $\lambda$ - сеть Колмогорова-Арнольда ($\lambda$-СКА).
@@ -16,8 +16,7 @@ $$f(x_{1},\cdot\cdot\cdot, x_{n})=\sum_{q=1}^{2n+1}\Phi_{q}(\sum_{p=1}^{n}\lambd
 $\lambda$-СКА была протестирована на 4 синтетических, 2 реальных наборах данных и MNIST с использованием SHAP и LIME в качестве референсных методов интерпретации.
 
 ![pic1](pictures/Pic1.png)
-*SHAP, LIME and $\lambda$ sensitivity analyses of $\lambda$-KAN on Curated solubility and Boston housing datasets*
-*Анализ чувствительности $\lambda$-СКА методами SHAP, LIME и $\lambda$-коэффициентов на бенчмарках Curated solubility (сверху) и Boston housing (снизу)*
+*Анализ чувствительности* $\lambda$ *- СКА методами SHAP, LIME и* $\lambda$ *- коэффициентов на бенчмарках Curated solubility (сверху) и Boston housing (снизу)*
 
 
 ---
