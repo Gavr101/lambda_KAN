@@ -1,4 +1,4 @@
-# $\lambda$-СКА как архитектурно интерпретируемый ИИ.
+# $\lambda$-СКА как архитектурно интерпретируемый ИИ
 
 ![gif1](mnist_example/logs/MnistLR/lightning_logs/version_0/sens_pic/MnistLR.gif)
 ![gif2](mnist_example/logs/Mnist_tlmdSplineKAN/lightning_logs/version_0/sens_pic/tlmdSplineKAN.gif)
@@ -23,7 +23,7 @@ $\lambda$-СКА была протестирована на 4 синтетиче
 ---
 С целью улучшения аппроксимационных возможностей при сохранении интерпретационных возможностей $\lambda$-СКА, была введена обучаемая $\lambda$-СКА:
 
-$$f(x_{1},\cdot\cdot\cdot, x_{n})=\sum_{q=1}^{2n+1}\Phi_{q}(\sum_{p=1}^{n}\lambda_{p}(1+\alpha g(\bold{x}))\cdot\varphi_{q}(x_{p}))$$
+$$f(x_{1},\cdot\cdot\cdot, x_{n})=\sum_{q=1}^{2n+1}\Phi_{q}(\sum_{p=1}^{n}\lambda_{p}(1+\alpha g( \bold{x}))\cdot\varphi_{q}(x_{p}))$$
 
 
 Обучаемая $\lambda$-СКА показала наилучший баланс интерпретируемость-точность на задаче MNIST.

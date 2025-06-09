@@ -1,8 +1,8 @@
-# $\lambda$-KAN as architecture-based EXAI.
+# $\lambda$-KAN as architecture-based EXAI
 
 ![gif1](mnist_example/logs/MnistLR/lightning_logs/version_0/sens_pic/MnistLR.gif)
 ![gif2](mnist_example/logs/Mnist_tlmdSplineKAN/lightning_logs/version_0/sens_pic/tlmdSplineKAN.gif)
-*MNIST. Linear classifier and trainable $\lambda$-KAN sensitivity-maps evolution during training*
+_MNIST. Linear classifier and trainable $\lambda$-KAN sensitivity-maps evolution during training_
 
 # General Description
 This project presents the software code for applying $\lambda$ - Kolmogorov-Arnold networks ($\lambda$-KAN).
