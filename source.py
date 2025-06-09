@@ -132,9 +132,14 @@ def scatter_prediction_kan(model,
     return rmse, mae, r2
 
 
-def kan_summary_after_fit(model, dataset, results, lmdKAN=False):
+def kan_summary_after_fit(model, dataset, results, lmdKAN=False, in_vars = None, out_vars = None):
     model.forward(dataset['test_input'])
-    model.plot()
+    if in_vars!=None and out_vars!=None:
+        prnt_kwrgs = {'in_vars': in_vars, 
+                     'out_vars': out_vars}
+        model.plot(**prnt_kwrgs)
+    else:
+        model.plot()
     plt.show()
     plt.close()
 
@@ -1255,8 +1260,8 @@ class lmdKAN(KAN):
     
         return {'mean_r2': mean_r2,
                 'mean_matrix_entropy': mean_entropy}
-        
-        
+    
+    
 # Interpretability analyse of lambda-KAN
 def shap_analysis(model, dataset):
     # Define function to wrap model to transform data to tensor
@@ -1285,10 +1290,14 @@ def grad_analysis(model, dataset):
     return x.grad.numpy()
     
     
-def get_df4bar(matrix, method_name):
+def get_df4bar(matrix, method_name, VAR=None):
     l_x_num = []
-    for i in range(matrix.shape[1]):
-        l_x_num += [i+1] * matrix.shape[0]
+    if VAR!=None:
+        for i in range(matrix.shape[1]):
+            l_x_num += [VAR[i]] * matrix.shape[0]
+    else:
+        for i in range(matrix.shape[1]):
+            l_x_num += [f'$x_{{{i+1}}}$'] * matrix.shape[0]
     l_x_num = np.array(l_x_num)
 
     dict_matrix = {'value': matrix.ravel(order='F'),
@@ -1350,12 +1359,13 @@ def importance_analyse_lmdKAN(model, dataset):
     
     # Evaluating cosine between lambda-values and gradients
     cosines = (lamb_matrix*grad_matrix).sum(axis=1) / (np.sqrt((lamb_matrix**2).sum(axis=1)) * np.sqrt((grad_matrix**2).sum(axis=1)))
+    mean_cosines = round(float(np.mean(np.abs(cosines))), 4)
     bins = min(2000, max(10, cosines.shape[0]//10) )
     
     plt.hist(cosines, bins=bins, orientation="horizontal")
     plt.xlabel('num')
     plt.ylabel('cosine value')
-    plt.title(f'Histogram of $\\cos(\\vec \\lambda, \\vec \\nabla_x f)$')
+    plt.title(f'Histogram of $\\cos(\\vec \\lambda, \\vec \\nabla_x f)$ | $\\langle \\mid \\cos(\\vec \\lambda, \\vec \\nabla_x f) \\mid \\rangle$={mean_cosines}')
     plt.show()
     plt.close()
 
@@ -2548,11 +2558,12 @@ def importance_analyse_tlmdKAN(model, dataset):
     
     # Evaluating cosine between lambda-values and gradients
     cosines = (lamb_matrix*grad_matrix).sum(axis=1) / (np.sqrt((lamb_matrix**2).sum(axis=1)) * np.sqrt((grad_matrix**2).sum(axis=1)))
+    mean_cosines = round(float(np.mean(np.abs(cosines))), 4)
     bins = min(2000, max(10, cosines.shape[0]//10) )
     
     plt.hist(cosines, bins=bins, orientation="horizontal")
     plt.xlabel('num')
     plt.ylabel('cosine value')
-    plt.title(f'Histogram of $\\cos(\\vec \\lambda, \\vec \\nabla_x f)$')
+    plt.title(f'Histogram of $\\cos(\\vec \\lambda, \\vec \\nabla_x f)$ | $\\langle \\mid \\cos(\\vec \\lambda, \\vec \\nabla_x f) \\mid \\rangle$={mean_cosines}')
     plt.show()
     plt.close()

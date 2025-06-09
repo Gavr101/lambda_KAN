@@ -362,7 +362,6 @@ class SplineKANLayer(KANLayer):
         return y
     
     
-    
 class MnistSplineKAN(nn.Module):
     def __init__(self, input_shape=(1, 28, 28)):
         super().__init__()
