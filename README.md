@@ -2,7 +2,7 @@
 
 ![gif1](mnist_example/logs/MnistLR/lightning_logs/version_0/sens_pic/MnistLR.gif)
 ![gif2](mnist_example/logs/Mnist_tlmdSplineKAN/lightning_logs/version_0/sens_pic/tlmdSplineKAN.gif)
-*MNIST. Linear classifier and trainable* $\lambda$ * -KAN sensitivity-maps evolution during training*
+*MNIST. Linear classifier and trainable* $\lambda$ *- KAN sensitivity-maps evolution during training*
 
 # General Description
 This project presents the software code for applying $\lambda$ - Kolmogorov-Arnold networks ($\lambda$-KAN).
