@@ -2,7 +2,7 @@
 
 ![gif1](mnist_example/logs/MnistLR/lightning_logs/version_0/sens_pic/MnistLR.gif)
 ![gif2](mnist_example/logs/Mnist_tlmdSplineKAN/lightning_logs/version_0/sens_pic/tlmdSplineKAN.gif)
-_MNIST. Linear classifier and trainable $\lambda$-KAN sensitivity-maps evolution during training_
+_MNIST. Linear classifier and trainable_ $\lambda$ _-KAN sensitivity-maps evolution during training_
 
 # General Description
 This project presents the software code for applying $\lambda$ - Kolmogorov-Arnold networks ($\lambda$-KAN).
@@ -16,13 +16,13 @@ This modification of KAN allows treat $\lambda_{p}$ coefficients as measure of s
 $\lambda$-KAN was tested on 4 synthetic, 2 real-world datasets and MNIST with using SHAP and LIME as reference interpretation methods.
 
 ![pic1](pictures/Pic1.png)
-*SHAP, LIME and $\lambda$ sensitivity analyses of $\lambda$-KAN on Curated solubility (high row) and Boston housing(low row) datasets*
+*SHAP, LIME and* $\lambda$ *sensitivity analyses of* $\lambda$ *-KAN on Curated solubility (high row) and Boston housing(low row) datasets*
 
 
 ---
 In order to improve approximation abilities while maintaining interpretative capabilities of $\lambda$-KAN, trainable $\lambda$-KAN was introduced:
 
-$$f(x_{1},\cdot\cdot\cdot, x_{n})=\sum_{q=1}^{2n+1}\Phi_{q}(\sum_{p=1}^{n}\lambda_{p}(1+\alpha g(\bold{x}))\cdot\varphi_{q}(x_{p}))$$
+$$f(x_{1},\cdot\cdot\cdot, x_{n})=\sum_{q=1}^{2n+1}\Phi_{q}(\sum_{p=1}^{n}\lambda_{p}(1+\alpha g(x))\cdot\varphi_{q}(x_{p}))$$
 
 
 Trainable $\lambda$-KAN have shown best interpretation-accuracy trade on MNIST.
