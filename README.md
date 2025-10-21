@@ -45,7 +45,7 @@ Directory hierarchy:
         3. Interpretability analyse of lambda-KAN.
 
 
-2) _Benchmarks_/: Providing training and interpretability-analysis on $\lambda$-KAN using test functions and real-world benchmarks.
+2) _Benchmarks_/ : Providing training and interpretability-analysis on $\lambda$-KAN using test functions and real-world benchmarks.
     * lmd_kan_f1.ipynb
     * lmd_kan_f1_extend_input.ipynb - _extended_input_ stands for adding two random inputs
 
@@ -56,7 +56,7 @@ Directory hierarchy:
     * lmd_kan_curated_solubility.ipynb - Curated solubility benchmark is used
 
 
-3) _MNIST_example_/: Applying MLP, Linear classificator, $\lambda$-KAN and trainable $\lambda$-KAN to MNIST. Investigating interpretability of the last three models.
+3) _MNIST_example_/ : Applying MLP, Linear classificator, $\lambda$-KAN and trainable $\lambda$-KAN to MNIST. Investigating interpretability of the last three models.
 
     Gifs of sensitivity-maps evolution during training process can be found in _MNIST_example/logs/.../sens_pic_
 

@@ -121,11 +121,25 @@ def scatter_prediction_kan(model,
     r2 = r2_score(y_true, y_pred)
     
     fig, ax = plt.subplots(figsize=(5,5))
-    plt.plot(y_true, y_pred, 'o', markersize=2, alpha = 0.2) 
-    plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], markersize=2, alpha = 0.5, color='r') 
-    ax.set_title(f"RMSE={round(rmse, 5)} | MAE={round(mae, 5)} | R2={round(r2, 5)} | {title}")
-    ax.set_xlabel("y_true")
-    ax.set_ylabel("y_pred")
+    plt.plot(y_true, y_pred, 'o', markersize=4, alpha = 0.8) 
+    plt.plot([min(y_true), max(y_true)], [min(y_true), max(y_true)], linewidth=1.5, alpha = 1.0, color='r') 
+    # place statistics text in the upper-left corner using axes coordinates
+    ax.text(0.02, 0.98,
+        f"$RMSE$={round(float(rmse), 5)} \n$MAE$={round(float(mae), 5)} \n$R^2$={round(float(r2), 5)}",
+        transform=ax.transAxes,
+        fontsize=14,
+        verticalalignment='top',
+        horizontalalignment='left')
+    #ax.set_title(title)
+    ax.set_title('')
+    ax.set_xlabel("True y", size=14)
+    ax.set_ylabel("Predicted y", size=14)
+    # Increase tick label sizes for x-axis
+    for label in ax.get_xticklabels():
+      label.set_fontsize(14)
+    for label in ax.get_yticklabels():
+      label.set_fontsize(14)
+    
     plt.show()
     plt.close()
     
@@ -163,9 +177,11 @@ def kan_summary_after_fit(model, dataset, results, lmdKAN=False, in_vars = None,
         plt.show()
         plt.close()
         
-    scatter_prediction_kan(model, dataset['test_input'], dataset['test_label'].reshape([-1,1]))
+    rmse, mae, r2 = scatter_prediction_kan(model, dataset['test_input'], dataset['test_label'].reshape([-1,1]))
     
-    
+    return rmse, mae, r2
+
+
 # lambda-KAN realisation
 class lmdKANLayer(KANLayer):
     """
@@ -1033,7 +1049,12 @@ class lmdKAN(KAN):
             disp_x2 = torch.sum( torch.square(x - x_mean), dim=-1 )
             disp_y2 = torch.sum( torch.square(y - y_mean), dim=-1 )
 
-            corr = cov / torch.sqrt( disp_x2 * disp_y2 )
+            # add small epsilon to denominator to avoid division by zero / NaNs
+            eps = 1e-12
+            denom = torch.sqrt( disp_x2 * disp_y2 )
+            denom = denom + eps
+
+            corr = cov / denom
 
             return corr
 
@@ -1103,42 +1124,49 @@ class lmdKAN(KAN):
         lmd_layer_acts = lmd_layer_acts.permute(2, 1, 0) #(in_dim, out_dim, N)
         out_layer_acts = out_layer_acts.permute(1, 0) #(out_dim, N)
         _in_dim, _out_dim, _N = lmd_layer_acts.shape
-        
-        # Prepare std for norming
+
+        # Prepare std for norming (add epsilon to avoid divide-by-zero)
+        eps = 1e-12
         std_lmd_layer_acts = torch.std(lmd_layer_acts.detach().clone(), dim=-1) * lmd_layer_acts_disp_scale #(in_dim, out_dim)
         std_out_layer_acts = torch.std(out_layer_acts.detach().clone(), dim=-1) * out_layer_acts_disp_scale #(out_dim)
-        std_lmd_layer_acts = std_lmd_layer_acts[:,:, None, None, None] #(in_dim, out_dim, 1, 1, 1)
-        std_out_layer_acts = std_out_layer_acts[None,:, None, None, None].expand(_in_dim, _out_dim, 1, 1, 1) #(in_dim, out_dim, 1, 1, 1)
+        # ensure stds are not zero
+        std_lmd_layer_acts = (std_lmd_layer_acts + eps)[:,:, None, None, None] #(in_dim, out_dim, 1, 1, 1)
+        std_out_layer_acts = (std_out_layer_acts + eps)[None,:, None, None, None].expand(_in_dim, _out_dim, 1, 1, 1) #(in_dim, out_dim, 1, 1, 1)
         std_data_vector = torch.cat((std_lmd_layer_acts, std_out_layer_acts), dim=-1) #(in_dim, out_dim, 1, 1, 2)
-        
+
         # Prepare full_data as multiple pairs of (x, y) independently for each function
         out_layer_acts = out_layer_acts.expand(1, _in_dim, _out_dim, _N) #(1, in_dim, out_dim, N)
         lmd_layer_acts = torch.unsqueeze(lmd_layer_acts, 0) #(1, in_dim, out_dim, N)
         full_data = torch.cat((lmd_layer_acts, out_layer_acts), dim=0) #(2, in_dim, out_dim, N)
         full_data = full_data.permute(1, 2, 3, 0) #(in_dim, out_dim, N, 2)
-        
+
         # Prepare residuals as matrix of distances independently for x, y and each function
         full_data = full_data.unsqueeze(dim=2) #(in_dim, out_dim, 1, N, 2)
         residuals = full_data - full_data.detach().clone().swapaxes(-2, -3) #(in_dim, out_dim, N', N, 2); N' - is not differentiable, stands for points in which kernel dencity is estimated
-        
+
         # Norming residuals on std and calculate distances**2
         squared_distances = torch.sum(torch.square(residuals / std_data_vector), dim=-1) #(in_dim, out_dim, N', N)
-        
+
         # Applying radial_function to squared_distances
         kernel_values = radial_function(squared_distances, beta=1, trash_hold_std=trash_hold_std)
         kernal_probs = kernel_values.sum(dim=-1)
-        
+
         # Create _zero_diag_mask to exclude diagonal probs in kernal_probs
         _zero_diag_mask = (torch.ones(_N, _N) - torch.eye(_N, _N)) #(N', N)
-        
+
         # Finally, create and norm kernal_probs
         kernal_probs = (_zero_diag_mask * kernel_values).sum(dim=-1) #(in_dim, out_dim, N')
-        kernal_probs = kernal_probs / torch.sum(kernal_probs.detach().clone(), dim=-1, keepdim=True) #(in_dim, out_dim, N')
-        
+        # normalize with numerical stability
+        denom = torch.sum(kernal_probs.detach().clone(), dim=-1, keepdim=True)
+        denom = denom + eps
+        kernal_probs = kernal_probs / denom #(in_dim, out_dim, N')
+
+        # Clamp small probabilities before log to avoid -inf
+        kernal_probs = torch.clamp(kernal_probs, min=eps)
+
         # Evaluate negative Entropy from kernal_probs
         n_entropy = torch.sum(torch.log(kernal_probs), dim=-1) * 1/_N #(in_dim, out_dim)
-        
-        
+
         return n_entropy
 
 
@@ -1204,16 +1232,20 @@ class lmdKAN(KAN):
     
     
     def get_reg(self, reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff, lamb_lmd_interm, lamb_lmd_final, lmd_layer_acts_disp_scale=1, out_layer_acts_disp_scale=1, trash_hold_std=None,
-                type='entropy'):
+                type='none'):
         '''
         Get regularization. This seems unnecessary but in case a class wants to inherit this, it may want to rewrite get_reg, but not reg.
-            type : 'entropy' or 'r2'
+            type : 'entropy' or 'r2' or 'none'
         '''
         if type=='entropy':
+            #print(f'ALERT! type=entropy in get_reg')
             return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff) + self.get_lmd_entropy(lamb_lmd_interm, lamb_lmd_final, lmd_layer_acts_disp_scale, out_layer_acts_disp_scale, trash_hold_std)
         elif type=='r2':
+            #print(f'ALERT! type=r2 in get_reg')
             return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff) + self.reg_lmd_r2(lamb_lmd_interm, lamb_lmd_final)
-    
+        else:
+            return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff)
+            
     
     def lmd_corr_plot(self, fin_layer=False, title_text=''):
         if not fin_layer:
@@ -1326,12 +1358,40 @@ def importance_analyse_lmdKAN(model, dataset):
 
     #sns.barplot(df_all, x="$x_i$", y="value", hue="method", capsize=0.2).set(title="module of input importance")
     print("module of Input importance:")
-    sns.catplot(
+    cat = sns.catplot(
     df_all, kind="bar",
     x="$x_i$", y="value", col="method", hue="method", capsize=0.2,
     height=4,
     aspect=1.,
     margin_titles=True)
+    
+    # Increase legend font size
+    leg = cat.legend
+    # Remove the word "method" from the legend title
+    if leg is not None:
+      leg.set_title('')
+      cat.legend.set_bbox_to_anchor((0.6, 0.75))  # Adjust x and y to fine-tune position
+      for text in leg.get_texts():
+          text.set_fontsize(25)  # Set your desired font size
+
+
+    # Increase symbol sizes in the plot
+    for ax in cat.axes.flat:
+
+
+      # Remove subplot title
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+        ax.set_title('')
+
+        # Increase tick label sizes for x-axis
+        for label in ax.get_xticklabels():
+          label.set_fontsize(24)
+        for label in ax.get_yticklabels():
+          label.set_fontsize(18)
+
+
+    #cat.figure.suptitle('$Ni^{2+}$', size=28, y=1.05)
     plt.show()
     plt.close()
 
@@ -1362,14 +1422,56 @@ def importance_analyse_lmdKAN(model, dataset):
     mean_cosines = round(float(np.mean(np.abs(cosines))), 4)
     bins = min(2000, max(10, cosines.shape[0]//10) )
     
-    plt.hist(cosines, bins=bins, orientation="horizontal")
-    plt.xlabel('num')
-    plt.ylabel('cosine value')
-    plt.title(f'Histogram of $\\cos(\\vec \\lambda, \\vec \\nabla_x f)$ | $\\langle \\mid \\cos(\\vec \\lambda, \\vec \\nabla_x f) \\mid \\rangle$={mean_cosines}')
+    fig, ax = plt.subplots()
+    ax.hist(cosines, bins=bins, orientation="horizontal")
+    ax.set_yticks([-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1])  # Fix x-ticks
+    ax.set_xlabel('num', fontsize=20)
+    ax.set_ylabel('cosine value', fontsize=20)
+
+    # Increase tick label sizes for x-axis
+    for label in ax.get_xticklabels():
+      label.set_fontsize(18)
+    for label in ax.get_yticklabels():
+      label.set_fontsize(18)
+    
+    plt.title(f'Distribution of cosine measure', fontsize=22)
+
+    #plt.title(f'Histogram of $\\cos(\\vec \\lambda, \\vec \\nabla_x f)$ | $\\langle \\mid \\cos(\\vec \\lambda, \\vec \\nabla_x f) \\mid \\rangle$={mean_cosines}')
+    # f'Гистограмма распр-ия $\\cos(\\vec \\lambda, \\vec \\nabla_x f)$ | $\\langle \\mid \\cos(\\vec \\lambda, \\vec \\nabla_x f) \\mid \\rangle$={mean_cosines}'
     plt.show()
     plt.close()
+    
 
-
+def mean_cosine_similarity_lmdkan(model, dataset):
+    grad_matrix = grad_analysis(model, dataset)
+    lamb_matrix = model.act_fun[0].lmd.detach().unsqueeze(dim=0).numpy()
+    
+    abs_grad_matrix = np.abs(grad_matrix) / np.abs(grad_matrix).sum(axis=1, keepdims=True)
+    abs_lamb_matrix = np.abs(lamb_matrix) / np.abs(lamb_matrix).sum(axis=1, keepdims=True)
+    
+    # Evaluating cosine between lambda-values and gradients
+    cosines = (lamb_matrix*grad_matrix).sum(axis=1) / (np.sqrt((lamb_matrix**2).sum(axis=1)) * np.sqrt((grad_matrix**2).sum(axis=1)))
+    mean_cosines = float(np.mean(np.abs(cosines)))
+    std_cosines = float(np.std(np.abs(cosines))) 
+    
+    return mean_cosines, std_cosines
+    
+    
+def mean_cosine_similarity_lmdkan_init(model_tlmdKAN, model_fitted, dataset):
+    grad_matrix = grad_analysis(model_fitted, dataset)
+    lamb_matrix = model_tlmdKAN.act_fun[0].lmd.detach().unsqueeze(dim=0).numpy()
+    
+    abs_grad_matrix = np.abs(grad_matrix) / np.abs(grad_matrix).sum(axis=1, keepdims=True)
+    abs_lamb_matrix = np.abs(lamb_matrix) / np.abs(lamb_matrix).sum(axis=1, keepdims=True)
+    
+    # Evaluating cosine between lambda-values and gradients
+    cosines = (lamb_matrix*grad_matrix).sum(axis=1) / (np.sqrt((lamb_matrix**2).sum(axis=1)) * np.sqrt((grad_matrix**2).sum(axis=1)))
+    mean_cosines = float(np.mean(np.abs(cosines)))
+    std_cosines = float(np.std(np.abs(cosines))) 
+    
+    return mean_cosines, std_cosines
+    
+    
 # trainable lambda-KAN realisation
 class tlmdKANLayer(KANLayer):
     """
@@ -2283,6 +2385,7 @@ class tlmdKAN(KAN):
 
             return corr
 
+        print(f'ALERT! reg_lmd_r2 call')
         if lamb_lmd_interm!=0:
             reg_interm_ = torch.mean( torch.square(pirson_corr(self.beforelmd.permute(2,1,0)[None,:,:,:], self.postacts_interm_for_lmd_reg.permute(1,2,0)[:,None,:,:])) )
         else: reg_interm_ = 0
@@ -2425,6 +2528,7 @@ class tlmdKAN(KAN):
 
         For more details see demo_inter_channel_entropy_loss.ipynb
         '''       
+        print(f'ALERT! get_lmd_entropy call')
         if lamb_lmd_interm!=0:
             reg_interm_ = self.lmd_entropy(lmd_layer_acts=self.beforelmd,
                                            out_layer_acts=self.spline_postacts[1].squeeze(),
@@ -2450,16 +2554,20 @@ class tlmdKAN(KAN):
     
     
     def get_reg(self, reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff, lamb_lmd_interm, lamb_lmd_final, lmd_layer_acts_disp_scale=1, out_layer_acts_disp_scale=1, trash_hold_std=None,
-                type='entropy'):
+                type='none'):
         '''
         Get regularization. This seems unnecessary but in case a class wants to inherit this, it may want to rewrite get_reg, but not reg.
-            type : 'entropy' or 'r2'
+            type : 'entropy' or 'r2' or 'none'
         '''
         if type=='entropy':
+            #print(f'ALERT! type=entropy in get_reg')
             return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff) + self.get_lmd_entropy(lamb_lmd_interm, lamb_lmd_final, lmd_layer_acts_disp_scale, out_layer_acts_disp_scale, trash_hold_std)
         elif type=='r2':
+            #print(f'ALERT! type=r2 in get_reg')
             return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff) + self.reg_lmd_r2(lamb_lmd_interm, lamb_lmd_final)
-    
+        else:
+            return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff)
+        
     
     def lmd_corr_plot(self, fin_layer=False, title_text=''):
         if not fin_layer:
@@ -2561,9 +2669,36 @@ def importance_analyse_tlmdKAN(model, dataset):
     mean_cosines = round(float(np.mean(np.abs(cosines))), 4)
     bins = min(2000, max(10, cosines.shape[0]//10) )
     
-    plt.hist(cosines, bins=bins, orientation="horizontal")
-    plt.xlabel('num')
-    plt.ylabel('cosine value')
-    plt.title(f'Histogram of $\\cos(\\vec \\lambda, \\vec \\nabla_x f)$ | $\\langle \\mid \\cos(\\vec \\lambda, \\vec \\nabla_x f) \\mid \\rangle$={mean_cosines}')
+    fig, ax = plt.subplots()
+    ax.hist(cosines, bins=bins, orientation="horizontal")
+    ax.set_yticks([-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1])  # Fix x-ticks
+    ax.set_xlabel('num', fontsize=20)
+    ax.set_ylabel('cosine value', fontsize=20)
+
+    # Increase tick label sizes for x-axis
+    for label in ax.get_xticklabels():
+      label.set_fontsize(18)
+    for label in ax.get_yticklabels():
+      label.set_fontsize(18)
+    
+    plt.title(f'Distribution of cosine measure', fontsize=22)
+    
+    #plt.title(f'Histogram of $\\cos(\\vec \\lambda, \\vec \\nabla_x f)$ | $\\langle \\mid \\cos(\\vec \\lambda, \\vec \\nabla_x f) \\mid \\rangle$={mean_cosines}')
+    # f'Гистограмма распр-ия $\\cos(\\vec \\lambda, \\vec \\nabla_x f)$ | $\\langle \\mid \\cos(\\vec \\lambda, \\vec \\nabla_x f) \\mid \\rangle$={mean_cosines}'
     plt.show()
     plt.close()
+  
+
+def mean_cosine_similarity_tlmdkan(model, dataset):
+    grad_matrix = grad_analysis(model, dataset)
+    lamb_matrix = model.add_lmd.detach().numpy()
+    
+    abs_grad_matrix = np.abs(grad_matrix) / np.abs(grad_matrix).sum(axis=1, keepdims=True)
+    abs_lamb_matrix = np.abs(lamb_matrix) / np.abs(lamb_matrix).sum(axis=1, keepdims=True)
+    
+    # Evaluating cosine between lambda-values and gradients
+    cosines = (lamb_matrix*grad_matrix).sum(axis=1) / (np.sqrt((lamb_matrix**2).sum(axis=1)) * np.sqrt((grad_matrix**2).sum(axis=1)))
+    mean_cosines = float(np.mean(np.abs(cosines)))
+    std_cosines = float(np.std(np.abs(cosines))) 
+    
+    return mean_cosines, std_cosines
