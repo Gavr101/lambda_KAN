@@ -5,7 +5,8 @@ from matplotlib.ticker import FuncFormatter
 import seaborn as sns
 import pandas as pd
 
-from kan import KAN, KANLayer, MLP
+from kan import KAN, KANLayer#, MLP
+from kan.MLP import MLP
 from kan.spline import *
 from kan.utils import sparse_mask
 
@@ -18,6 +19,8 @@ import os
 from kan.Symbolic_KANLayer import Symbolic_KANLayer
 from tqdm import tqdm
 from kan.LBFGS import LBFGS
+### Changed for f1_lmd_normed version
+#from LBFGS_clipped import LBFGS
 from scipy.special import gamma
 
 
@@ -110,7 +113,7 @@ def scatter_prediction_kan(model,
                            x, 
                            y_true, 
                            title = ""):
-    """Evaluates MSE and R^2 of model. 
+    """Evaluates RMSE, MSE and R^2 of model. 
     Draws scatter plot of (y_true, y_predicted).
     Returns  (mse, r2)
     """
@@ -352,7 +355,10 @@ class lmdKANLayer(KANLayer):
         y = self.scale_base[None,:,:] * base[:,:,None] + self.scale_sp[None,:,:] * y # (batch, in_dim, out_dim)
         beforelmd = y.clone().permute(0,2,1) # (batch, out_dim, in_dim)
         
-        y = self.lmd[None,:,None] * y
+        ### Changed for f1_lmd_normed version
+        #y = self.lmd[None,:,None] * y
+        y = (self.lmd / torch.norm(self.lmd, p=2))[None,:,None] * y
+        
         y = self.mask[None,:,:] * y # (batch, in_dim, out_dim)
         
         postacts = y.clone().permute(0,2,1) # (batch, out_dim, in_dim)
@@ -816,7 +822,7 @@ class lmdKAN(KAN):
         return x
     
     
-    def fit(self, dataset, opt="LBFGS", steps=100, log=1, lamb=0., lamb_l1=1., lamb_entropy=2., lamb_coef=0., lamb_coefdiff=0., lamb_lmd_interm=0.0, lamb_lmd_final=0.0, lmd_layer_acts_disp_scale=1, out_layer_acts_disp_scale=1, trash_hold_std=None, reg_type='entropy',
+    def fit(self, dataset, opt="LBFGS", steps=100, log=1, lamb=0., lamb_l1=1., lamb_entropy=2., lamb_coef=0., lamb_coefdiff=0., lamb_lmd_interm=0.0, lamb_lmd_final=0.0, lmd_layer_acts_disp_scale=1, out_layer_acts_disp_scale=1, trash_hold_std=None, reg_type='none',
             update_grid=True, grid_update_num=10, loss_fn=None, lr=1.,start_grid_update_step=-1, stop_grid_update_step=50, batch=-1,
             metrics=None, save_fig=False, in_vars=None, out_vars=None, beta=3, save_fig_freq=1, img_folder='./video', singularity_avoiding=False, y_th=1000., reg_metric='edge_forward_spline_n', display_metrics=None):
         '''
@@ -1057,7 +1063,8 @@ class lmdKAN(KAN):
             corr = cov / denom
 
             return corr
-
+        
+        print(f'ALERT! reg_lmd_r2 call')
         if lamb_lmd_interm!=0:
             reg_interm_ = torch.mean( torch.square(pirson_corr(self.beforelmd.permute(2,1,0)[None,:,:,:], self.postacts_interm_for_lmd_reg.permute(1,2,0)[:,None,:,:])) )
         else: reg_interm_ = 0
@@ -1207,6 +1214,7 @@ class lmdKAN(KAN):
 
         For more details see demo_inter_channel_entropy_loss.ipynb
         '''       
+        print(f'ALERT! get_lmd_entropy call')
         if lamb_lmd_interm!=0:
             reg_interm_ = self.lmd_entropy(lmd_layer_acts=self.beforelmd,
                                            out_layer_acts=self.spline_postacts[1].squeeze(),
@@ -1238,10 +1246,10 @@ class lmdKAN(KAN):
             type : 'entropy' or 'r2' or 'none'
         '''
         if type=='entropy':
-            #print(f'ALERT! type=entropy in get_reg')
+            print(f'ALERT! type=entropy in get_reg')
             return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff) + self.get_lmd_entropy(lamb_lmd_interm, lamb_lmd_final, lmd_layer_acts_disp_scale, out_layer_acts_disp_scale, trash_hold_std)
         elif type=='r2':
-            #print(f'ALERT! type=r2 in get_reg')
+            print(f'ALERT! type=r2 in get_reg')
             return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff) + self.reg_lmd_r2(lamb_lmd_interm, lamb_lmd_final)
         else:
             return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff)
@@ -1669,7 +1677,10 @@ class tlmdKANLayer(KANLayer):
         add_lmd = self.lmd[None,:] * (1 + self.tlmd_alpha*torch.nn.Tanh()(self.tlmd_model(x))) # (batch, in_dim)
         add_lmd_copy = add_lmd.detach().clone() # (batch, in_dim)
         
-        y = add_lmd[:,:,None] * y # (batch, in_dim, out_dim)
+        ### Changed for f1_lmd_normed version
+        #y = add_lmd[:,:,None] * y # (batch, in_dim, out_dim)
+        y = (add_lmd / torch.norm(add_lmd, p=2, dim=1, keepdim=True))[:,:,None] * y # (batch, in_dim, out_dim)
+        
         y = self.mask[None,:,:] * y # (batch, in_dim, out_dim)
         
         postacts = y.clone().permute(0,2,1) # (batch, out_dim, in_dim)
@@ -2148,7 +2159,7 @@ class tlmdKAN(KAN):
         return x
     
     
-    def fit(self, dataset, opt="LBFGS", steps=100, log=1, lamb=0., lamb_l1=1., lamb_entropy=2., lamb_coef=0., lamb_coefdiff=0., lamb_lmd_interm=0.0, lamb_lmd_final=0.0, lmd_layer_acts_disp_scale=1, out_layer_acts_disp_scale=1, trash_hold_std=None, reg_type='entropy',
+    def fit(self, dataset, opt="LBFGS", steps=100, log=1, lamb=0., lamb_l1=1., lamb_entropy=2., lamb_coef=0., lamb_coefdiff=0., lamb_lmd_interm=0.0, lamb_lmd_final=0.0, lmd_layer_acts_disp_scale=1, out_layer_acts_disp_scale=1, trash_hold_std=None, reg_type='none',
             update_grid=True, grid_update_num=10, loss_fn=None, lr=1.,start_grid_update_step=-1, stop_grid_update_step=50, batch=-1,
             metrics=None, save_fig=False, in_vars=None, out_vars=None, beta=3, save_fig_freq=1, img_folder='./video', singularity_avoiding=False, y_th=1000., reg_metric='edge_forward_spline_n', display_metrics=None):
         '''
@@ -2560,10 +2571,10 @@ class tlmdKAN(KAN):
             type : 'entropy' or 'r2' or 'none'
         '''
         if type=='entropy':
-            #print(f'ALERT! type=entropy in get_reg')
+            print(f'ALERT! type=entropy in get_reg')
             return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff) + self.get_lmd_entropy(lamb_lmd_interm, lamb_lmd_final, lmd_layer_acts_disp_scale, out_layer_acts_disp_scale, trash_hold_std)
         elif type=='r2':
-            #print(f'ALERT! type=r2 in get_reg')
+            print(f'ALERT! type=r2 in get_reg')
             return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff) + self.reg_lmd_r2(lamb_lmd_interm, lamb_lmd_final)
         else:
             return self.reg(reg_metric, lamb_l1, lamb_entropy, lamb_coef, lamb_coefdiff)
